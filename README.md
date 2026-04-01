@@ -296,6 +296,5 @@ Notes:
 - Gemini sync writes MCP config to `~/.gemini/` and avoids mirroring skills that Gemini already discovers from `~/.agents/skills`, which prevents duplicate-skill warnings.
 - Droid, Windsurf, Kiro, and Qwen sync merge MCP servers into the provider's documented user config.
 - Crush sync writes skills as symlinks to `~/.config/crush/skills/`, commands as `.md` files to `~/.config/crush/commands/` (slash-invocable via `/command-name` in the command palette), and MCP servers into `~/.config/crush/crush.json`.
-- Crush sync writes skills as symlinks to `~/.config/crush/skills/`, commands as `.md` files to `~/.config/crush/commands/` (slash-invocable via `/command-name` in the command palette), and MCP servers into `~/.config/crush/crush.json`.
 - OpenClaw currently syncs skills only. Personal command sync is skipped because this repo does not yet have a documented user-level OpenClaw command surface, and MCP sync is skipped because the current official OpenClaw docs do not clearly document an MCP server config contract.
 

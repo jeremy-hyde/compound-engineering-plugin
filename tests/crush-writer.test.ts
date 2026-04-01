@@ -128,6 +128,21 @@ describe("writeCrushBundle", () => {
     expect(await exists(path.join(tempRoot, ".crush", "crush.json"))).toBe(true)
   })
 
+  test("always creates commands/ and skills/ directories even with empty bundle", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "crush-dirs-"))
+    const bundle: CrushBundle = {
+      config: {},
+      commandFiles: [],
+      generatedSkills: [],
+      skillDirs: [],
+    }
+
+    await writeCrushBundle(tempRoot, bundle)
+
+    expect(await exists(path.join(tempRoot, ".crush", "commands"))).toBe(true)
+    expect(await exists(path.join(tempRoot, ".crush", "skills"))).toBe(true)
+  })
+
   test("merges MCP config into existing crush.json (user keys win)", async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "crush-merge-"))
     const crushDir = path.join(tempRoot, ".crush")

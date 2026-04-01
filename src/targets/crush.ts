@@ -6,6 +6,8 @@ import type { CrushBundle, CrushConfig } from "../types/crush"
 export async function writeCrushBundle(outputRoot: string, bundle: CrushBundle): Promise<void> {
   const paths = resolveCrushPaths(outputRoot)
   await ensureDir(paths.configDir)
+  await ensureDir(paths.commandsDir)
+  await ensureDir(paths.skillsDir)
 
   const hadExistingConfig = await import("../utils/files").then(({ pathExists }) => pathExists(paths.configPath))
   const backupPath = await backupFile(paths.configPath)
