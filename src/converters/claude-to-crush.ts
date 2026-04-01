@@ -93,10 +93,7 @@ function convertSkillToCommandFile(skill: ClaudeSkill): CrushCommandFile {
   const frontmatter: Record<string, unknown> = {
     description: skill.description,
   }
-  if (skill.argumentHint) {
-    frontmatter["argument-hint"] = skill.argumentHint
-  }
-  const body = `Use the ${skillName} skill for this command and follow its instructions.`
+  const body = buildCommandBody(skillName, skill.argumentHint)
   return { name, content: formatFrontmatter(frontmatter, body) }
 }
 
@@ -131,16 +128,57 @@ function convertCommand(
   if (command.description) {
     commandFrontmatter.description = command.description
   }
-  if (command.argumentHint) {
-    commandFrontmatter["argument-hint"] = command.argumentHint
-  }
-  const commandBody = `Use the ${skillName} skill for this command and follow its instructions.`
+  const commandBody = buildCommandBody(skillName, command.argumentHint)
   const commandFile: CrushCommandFile = {
     name: command.name,
     content: formatFrontmatter(commandFrontmatter, commandBody),
   }
 
   return { commandFile, skill }
+}
+
+// Derives Crush $PLACEHOLDER names from an argument-hint string and builds
+// the command body. Each bracketed segment becomes one placeholder.
+// "[Plan doc path or description of work]" -> $CONTEXT
+// "[GitHub issue number or URL]" -> $ISSUE
+// "[PR number or 'current' or path/to/video.mp4] [optional: base URL]" -> $TARGET $BASE_URL
+// Skills that accept no meaningful arguments (e.g. hints starting with "optional" only)
+// still pass $CONTEXT so Crush always prompts and the skill can decide what to do with it.
+export function argumentHintToPlaceholders(hint: string): string[] {
+  // Extract each [...] segment
+  const segments = [...hint.matchAll(/\[([^\]]+)\]/g)].map((m) => m[1])
+  if (segments.length === 0) return []
+
+  return segments.map((segment) => {
+    const isOptional = /^optional[:\s]/i.test(segment)
+    // Strip "optional:" prefix and common filler words to get the core noun
+    const core = segment
+      .replace(/^optional[:\s]*/i, "")
+      .replace(/\bor\b.*/i, "")          // take only the first option: "PR number or URL" -> "PR number"
+      .replace(/\bdefault\b.*/i, "")     // strip "default ..." suffixes
+      .replace(/['"]/g, "")             // strip quotes
+      .trim()
+
+    // Convert to SCREAMING_SNAKE_CASE
+    const placeholder = core
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      || (isOptional ? "CONTEXT" : "ARGUMENT")
+
+    return `$${placeholder}`
+  })
+}
+
+export function buildCommandBody(skillName: string, argumentHint?: string): string {
+  if (!argumentHint) {
+    return `Use the ${skillName} skill for this command and follow its instructions.`
+  }
+  const placeholders = argumentHintToPlaceholders(argumentHint)
+  if (placeholders.length === 0) {
+    return `Use the ${skillName} skill for this command and follow its instructions.`
+  }
+  return `Use the ${skillName} skill for this command and follow its instructions.\n\nArguments: ${placeholders.join(" ")}`
 }
 
 export function transformContentForCrush(body: string): string {

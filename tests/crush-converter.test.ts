@@ -1,5 +1,5 @@
 import { describe, expect, test, spyOn } from "bun:test"
-import { convertClaudeToCrush, transformContentForCrush } from "../src/converters/claude-to-crush"
+import { convertClaudeToCrush, transformContentForCrush, argumentHintToPlaceholders, buildCommandBody } from "../src/converters/claude-to-crush"
 import { parseFrontmatter } from "../src/utils/frontmatter"
 import type { ClaudePlugin } from "../src/types/claude"
 
@@ -70,7 +70,8 @@ describe("convertClaudeToCrush", () => {
 
     const cmdParsed = parseFrontmatter(cmd.content)
     expect(cmdParsed.data.description).toBe("Planning command")
-    expect(cmdParsed.data["argument-hint"]).toBe("[FOCUS]")
+    expect(cmdParsed.data["argument-hint"]).toBeUndefined()
+    expect(cmdParsed.body).toContain("$FOCUS")
     expect(cmdParsed.body).toContain("Use the workflows-plan skill")
 
     const skill = bundle.generatedSkills.find((s) => s.name === "workflows-plan")
@@ -165,12 +166,15 @@ describe("convertClaudeToCrush", () => {
     expect(parsed.body).toMatch(/## Capabilities\n- Threat modeling\n- OWASP/)
   })
 
-  test("command with argument-hint gets it in command file frontmatter and Arguments section in skill", () => {
+  test("command with argument-hint gets $PLACEHOLDER in command body; skill retains full instructions", () => {
     const bundle = convertClaudeToCrush(fixturePlugin, defaultOptions)
 
     const cmd = bundle.commandFiles.find((c) => c.name === "workflows:plan")!
     const cmdParsed = parseFrontmatter(cmd.content)
-    expect(cmdParsed.data["argument-hint"]).toBe("[FOCUS]")
+    // command body should contain a $PLACEHOLDER derived from the hint
+    expect(cmdParsed.body).toContain("$FOCUS")
+    // no argument-hint in command frontmatter (Crush uses $PLACEHOLDERS in body instead)
+    expect(cmdParsed.data["argument-hint"]).toBeUndefined()
 
     const skill = bundle.generatedSkills.find((s) => s.name === "workflows-plan")!
     expect(skill.content).toContain("## Arguments")
@@ -363,8 +367,9 @@ describe("convertClaudeToCrush", () => {
     expect(cmd.name).toBe("ce:work")
     const parsed = parseFrontmatter(cmd.content)
     expect(parsed.data.description).toBe("Execute work efficiently")
-    expect(parsed.data["argument-hint"]).toBe("[Plan doc path]")
+    expect(parsed.data["argument-hint"]).toBeUndefined()
     expect(parsed.body).toContain("Use the ce-work skill")
+    expect(parsed.body).toContain("$PLAN_DOC_PATH")
   })
 })
 
@@ -434,5 +439,68 @@ Task best-practices-researcher(topic)`
     expect(result).toContain("the security-sentinel skill")
     expect(result).toContain("the dhh-rails-reviewer skill")
     expect(result).not.toContain("@security-sentinel")
+  })
+})
+
+describe("argumentHintToPlaceholders", () => {
+  test("single segment becomes one placeholder", () => {
+    expect(argumentHintToPlaceholders("[GitHub issue number or URL]")).toEqual(["$GITHUB_ISSUE_NUMBER"])
+  })
+
+  test("optional prefix is stripped, rest of segment becomes placeholder", () => {
+    expect(argumentHintToPlaceholders("[optional: specific principle to audit]")).toEqual(["$SPECIFIC_PRINCIPLE_TO_AUDIT"])
+  })
+
+  test("multi-segment hint produces multiple placeholders", () => {
+    const result = argumentHintToPlaceholders("[PR number or 'current' or path/to/video.mp4] [optional: base URL, default localhost:3000]")
+    expect(result).toHaveLength(2)
+    expect(result[0]).toBe("$PR_NUMBER")
+    expect(result[1]).toMatch(/^\$/)
+  })
+
+  test("plan doc path hint", () => {
+    expect(argumentHintToPlaceholders("[Plan doc path or description of work. Blank to auto use latest plan doc]")).toEqual(["$PLAN_DOC_PATH"])
+  })
+
+  test("blank to review hint", () => {
+    expect(argumentHintToPlaceholders("[blank to review current branch, or provide PR link]")).toEqual(["$BLANK_TO_REVIEW_CURRENT_BRANCH"])
+  })
+
+  test("feature idea hint", () => {
+    expect(argumentHintToPlaceholders("[feature idea or problem to explore]")).toEqual(["$FEATURE_IDEA"])
+  })
+
+  test("document review mode + path hint", () => {
+    const result = argumentHintToPlaceholders("[mode:headless] [path/to/document.md]")
+    expect(result).toHaveLength(2)
+    expect(result[0]).toBe("$MODE_HEADLESS")
+    expect(result[1]).toMatch(/^\$PATH/)
+  })
+
+  test("empty hint returns empty array", () => {
+    expect(argumentHintToPlaceholders("")).toEqual([])
+  })
+
+  test("hint with no brackets returns empty array", () => {
+    expect(argumentHintToPlaceholders("no brackets here")).toEqual([])
+  })
+})
+
+describe("buildCommandBody", () => {
+  test("no hint produces simple delegation line", () => {
+    expect(buildCommandBody("ce-work")).toBe(
+      "Use the ce-work skill for this command and follow its instructions.",
+    )
+  })
+
+  test("hint with argument appends placeholder", () => {
+    const body = buildCommandBody("reproduce-bug", "[GitHub issue number or URL]")
+    expect(body).toContain("Use the reproduce-bug skill")
+    expect(body).toContain("$GITHUB_ISSUE_NUMBER")
+  })
+
+  test("multi-argument hint appends multiple placeholders", () => {
+    const body = buildCommandBody("feature-video", "[PR number or 'current' or path/to/video.mp4] [optional: base URL, default localhost:3000]")
+    expect(body).toContain("$PR_NUMBER")
   })
 })
