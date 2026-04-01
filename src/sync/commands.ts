@@ -4,6 +4,7 @@ import type { ClaudePlugin } from "../types/claude"
 import { backupFile, resolveCommandPath, sanitizePathName, writeText } from "../utils/files"
 import { convertClaudeToCodex } from "../converters/claude-to-codex"
 import { convertClaudeToCopilot } from "../converters/claude-to-copilot"
+import { convertClaudeToCrush } from "../converters/claude-to-crush"
 import { convertClaudeToDroid } from "../converters/claude-to-droid"
 import { convertClaudeToGemini } from "../converters/claude-to-gemini"
 import { convertClaudeToKiro } from "../converters/claude-to-kiro"
@@ -195,4 +196,21 @@ export function warnUnsupportedOpenClawCommands(config: ClaudeHomeConfig): void 
   console.warn(
     "Warning: OpenClaw personal command sync is skipped because this sync target currently has no documented user-level command surface.",
   )
+}
+
+export async function syncCrushCommands(
+  config: ClaudeHomeConfig,
+  outputRoot: string,
+): Promise<void> {
+  if (!hasCommands(config)) return
+
+  const plugin = buildClaudeHomePlugin(config)
+  const bundle = convertClaudeToCrush(plugin, DEFAULT_SYNC_OPTIONS)
+
+  for (const cmd of bundle.commandFiles) {
+    await writeText(path.join(outputRoot, "commands", `${sanitizePathName(cmd.name)}.md`), cmd.content + "\n")
+  }
+  for (const skill of bundle.generatedSkills) {
+    await writeText(path.join(outputRoot, "skills", sanitizePathName(skill.name), "SKILL.md"), skill.content + "\n")
+  }
 }

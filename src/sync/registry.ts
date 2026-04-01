@@ -8,6 +8,7 @@ import { syncToGemini } from "./gemini"
 import { syncToKiro } from "./kiro"
 import { syncToOpenClaw } from "./openclaw"
 import { syncToOpenCode } from "./opencode"
+import { syncToCrush } from "./crush"
 import { syncToPi } from "./pi"
 import { syncToQwen } from "./qwen"
 import { syncToWindsurf } from "./windsurf"
@@ -31,6 +32,7 @@ export type SyncTargetName =
   | "kiro"
   | "qwen"
   | "openclaw"
+  | "crush"
 
 export type SyncTargetDefinition = {
   name: SyncTargetName
@@ -119,6 +121,15 @@ export const syncTargets: SyncTargetDefinition[] = [
     detectPaths: (home) => [path.join(home, ".openclaw")],
     resolveOutputRoot: (home) => path.join(home, ".openclaw"),
     sync: syncToOpenClaw,
+  },
+  {
+    name: "crush",
+    detectPaths: (home, cwd) => [
+      path.join(home, ".config", "crush"),
+      path.join(cwd, ".crush"),
+    ],
+    resolveOutputRoot: (home) => path.join(home, ".config", "crush"),
+    sync: syncToCrush,
   },
 ]
 
