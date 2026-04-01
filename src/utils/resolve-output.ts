@@ -46,5 +46,9 @@ export function resolveTargetOutputRoot(options: {
     const home = qwenHome ?? path.join(os.homedir(), ".qwen", "extensions")
     return path.join(home, pluginName ?? "plugin")
   }
+  if (targetName === "crush") {
+    const base = hasExplicitOutput ? outputRoot : os.homedir()
+    return path.join(base, ".config", "crush")
+  }
   return outputRoot
 }
