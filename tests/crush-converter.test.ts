@@ -63,9 +63,10 @@ describe("convertClaudeToCrush", () => {
   test("commands produce both a command file and a backing skill", () => {
     const bundle = convertClaudeToCrush(fixturePlugin, defaultOptions)
 
-    expect(bundle.commandFiles).toHaveLength(1)
-    const cmd = bundle.commandFiles[0]
-    expect(cmd.name).toBe("workflows-plan")
+    // fixturePlugin has 1 skill (existing-skill, with description) + 1 command (workflows:plan)
+    expect(bundle.commandFiles).toHaveLength(2)
+    const cmd = bundle.commandFiles.find((c) => c.name === "workflows-plan")!
+    expect(cmd).toBeDefined()
 
     const cmdParsed = parseFrontmatter(cmd.content)
     expect(cmdParsed.data.description).toBe("Planning command")
@@ -167,7 +168,7 @@ describe("convertClaudeToCrush", () => {
   test("command with argument-hint gets it in command file frontmatter and Arguments section in skill", () => {
     const bundle = convertClaudeToCrush(fixturePlugin, defaultOptions)
 
-    const cmd = bundle.commandFiles[0]
+    const cmd = bundle.commandFiles.find((c) => c.name === "workflows-plan")!
     const cmdParsed = parseFrontmatter(cmd.content)
     expect(cmdParsed.data["argument-hint"]).toBe("[FOCUS]")
 
@@ -313,11 +314,57 @@ describe("convertClaudeToCrush", () => {
     warnSpy.mockRestore()
   })
 
-  test("plugin with zero agents and commands produces empty generatedSkills and commandFiles", () => {
+  test("plugin with zero agents and commands produces empty generatedSkills; skills with descriptions still get command files", () => {
     const plugin: ClaudePlugin = { ...fixturePlugin, agents: [], commands: [] }
     const bundle = convertClaudeToCrush(plugin, defaultOptions)
     expect(bundle.generatedSkills).toHaveLength(0)
+    // existing-skill has a description so it gets a command file
+    expect(bundle.commandFiles).toHaveLength(1)
+    expect(bundle.commandFiles[0].name).toBe("existing-skill")
+  })
+
+  test("skills with disable-model-invocation are excluded from command files", () => {
+    const plugin: ClaudePlugin = {
+      ...fixturePlugin,
+      agents: [],
+      commands: [],
+      skills: [
+        {
+          name: "changelog",
+          description: "Create changelogs",
+          disableModelInvocation: true,
+          sourceDir: "/tmp/plugin/skills/changelog",
+          skillPath: "/tmp/plugin/skills/changelog/SKILL.md",
+        },
+      ],
+    }
+    const bundle = convertClaudeToCrush(plugin, defaultOptions)
     expect(bundle.commandFiles).toHaveLength(0)
+  })
+
+  test("skill command file carries description and argument-hint from skill frontmatter", () => {
+    const plugin: ClaudePlugin = {
+      ...fixturePlugin,
+      agents: [],
+      commands: [],
+      skills: [
+        {
+          name: "ce:work",
+          description: "Execute work efficiently",
+          argumentHint: "[Plan doc path]",
+          sourceDir: "/tmp/plugin/skills/ce-work",
+          skillPath: "/tmp/plugin/skills/ce-work/SKILL.md",
+        },
+      ],
+    }
+    const bundle = convertClaudeToCrush(plugin, defaultOptions)
+    expect(bundle.commandFiles).toHaveLength(1)
+    const cmd = bundle.commandFiles[0]
+    expect(cmd.name).toBe("ce-work")
+    const parsed = parseFrontmatter(cmd.content)
+    expect(parsed.data.description).toBe("Execute work efficiently")
+    expect(parsed.data["argument-hint"]).toBe("[Plan doc path]")
+    expect(parsed.body).toContain("Use the ce-work skill")
   })
 })
 

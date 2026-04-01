@@ -1,6 +1,6 @@
 import { formatFrontmatter } from "../utils/frontmatter"
 import { sanitizePathName } from "../utils/files"
-import type { ClaudeAgent, ClaudeCommand, ClaudeMcpServer, ClaudePlugin } from "../types/claude"
+import type { ClaudeAgent, ClaudeCommand, ClaudeMcpServer, ClaudePlugin, ClaudeSkill } from "../types/claude"
 import type {
   CrushBundle,
   CrushCommandFile,
@@ -18,27 +18,32 @@ export function convertClaudeToCrush(
 ): CrushBundle {
   const usedSkillNames = new Set<string>()
 
-  // Reserve sanitized skill names so generated skills (from agents/commands) don't collide on disk
+  // Skills are copied as-is (already valid agentskills.io format).
+  // Skills with a description also get a slash-invocable command file so users
+  // can trigger them directly via /ce-work, /ce-plan, etc. Skills marked
+  // disable-model-invocation are excluded from the command surface.
   const skillDirs = plugin.skills.map((skill) => {
     usedSkillNames.add(sanitizePathName(skill.name))
-    return {
-      name: skill.name,
-      sourceDir: skill.sourceDir,
-    }
+    return { name: skill.name, sourceDir: skill.sourceDir }
   })
+
+  const skillCommandFiles: CrushCommandFile[] = plugin.skills
+    .filter((skill) => skill.description && !skill.disableModelInvocation)
+    .map((skill) => convertSkillToCommandFile(skill))
 
   const agentSkills = plugin.agents.map((agent) =>
     convertAgentToSkill(agent, usedSkillNames),
   )
 
-  // Commands produce both a slash-invocable command file AND a backing skill.
-  // The command file is what users invoke with /ce-work; the skill file holds
-  // the full instructions that the agent loads when the command is triggered.
+  // Explicit plugin commands (rare in this repo) also get a command + skill pair.
   const commandPairs = plugin.commands
     .filter((command) => !command.disableModelInvocation)
     .map((command) => convertCommand(command, usedSkillNames))
 
-  const commandFiles: CrushCommandFile[] = commandPairs.map((p) => p.commandFile)
+  const commandFiles: CrushCommandFile[] = [
+    ...skillCommandFiles,
+    ...commandPairs.map((p) => p.commandFile),
+  ]
   const commandSkills: CrushGeneratedSkill[] = commandPairs.map((p) => p.skill)
 
   const generatedSkills = [...agentSkills, ...commandSkills]
@@ -80,6 +85,18 @@ function convertAgentToSkill(
 
   const content = formatFrontmatter(frontmatter, body)
   return { name, content }
+}
+
+function convertSkillToCommandFile(skill: ClaudeSkill): CrushCommandFile {
+  const name = normalizeName(skill.name)
+  const frontmatter: Record<string, unknown> = {
+    description: skill.description,
+  }
+  if (skill.argumentHint) {
+    frontmatter["argument-hint"] = skill.argumentHint
+  }
+  const body = `Use the ${name} skill for this command and follow its instructions.`
+  return { name, content: formatFrontmatter(frontmatter, body) }
 }
 
 function convertCommand(
