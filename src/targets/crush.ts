@@ -23,7 +23,8 @@ export async function writeCrushBundle(outputRoot: string, bundle: CrushBundle):
   if (bundle.commandFiles.length > 0) {
     const commandsDir = paths.commandsDir
     for (const cmd of bundle.commandFiles) {
-      await writeText(path.join(commandsDir, `${sanitizePathName(cmd.name)}.md`), cmd.content + "\n")
+      const cmdPath = cmd.name.replace(/:/g, "/")
+      await writeText(path.join(commandsDir, `${cmdPath}.md`), cmd.content + "\n")
     }
   }
 

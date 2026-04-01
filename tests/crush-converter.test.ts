@@ -65,7 +65,7 @@ describe("convertClaudeToCrush", () => {
 
     // fixturePlugin has 1 skill (existing-skill, with description) + 1 command (workflows:plan)
     expect(bundle.commandFiles).toHaveLength(2)
-    const cmd = bundle.commandFiles.find((c) => c.name === "workflows-plan")!
+    const cmd = bundle.commandFiles.find((c) => c.name === "workflows:plan")!
     expect(cmd).toBeDefined()
 
     const cmdParsed = parseFrontmatter(cmd.content)
@@ -79,7 +79,7 @@ describe("convertClaudeToCrush", () => {
     expect(skillParsed.body).toContain("Plan the work.")
   })
 
-  test("command file is slash-invocable (name without extension maps to /ce-work etc.)", () => {
+  test("command file name preserves colons for subdirectory nesting (ce:work -> commands/ce/work.md)", () => {
     const plugin: ClaudePlugin = {
       ...fixturePlugin,
       agents: [],
@@ -95,7 +95,7 @@ describe("convertClaudeToCrush", () => {
     }
 
     const bundle = convertClaudeToCrush(plugin, defaultOptions)
-    expect(bundle.commandFiles[0].name).toBe("ce-work")
+    expect(bundle.commandFiles[0].name).toBe("ce:work")
   })
 
   test("commands with disableModelInvocation are excluded", () => {
@@ -168,7 +168,7 @@ describe("convertClaudeToCrush", () => {
   test("command with argument-hint gets it in command file frontmatter and Arguments section in skill", () => {
     const bundle = convertClaudeToCrush(fixturePlugin, defaultOptions)
 
-    const cmd = bundle.commandFiles.find((c) => c.name === "workflows-plan")!
+    const cmd = bundle.commandFiles.find((c) => c.name === "workflows:plan")!
     const cmdParsed = parseFrontmatter(cmd.content)
     expect(cmdParsed.data["argument-hint"]).toBe("[FOCUS]")
 
@@ -360,7 +360,7 @@ describe("convertClaudeToCrush", () => {
     const bundle = convertClaudeToCrush(plugin, defaultOptions)
     expect(bundle.commandFiles).toHaveLength(1)
     const cmd = bundle.commandFiles[0]
-    expect(cmd.name).toBe("ce-work")
+    expect(cmd.name).toBe("ce:work")
     const parsed = parseFrontmatter(cmd.content)
     expect(parsed.data.description).toBe("Execute work efficiently")
     expect(parsed.data["argument-hint"]).toBe("[Plan doc path]")

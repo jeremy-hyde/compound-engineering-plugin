@@ -88,14 +88,15 @@ function convertAgentToSkill(
 }
 
 function convertSkillToCommandFile(skill: ClaudeSkill): CrushCommandFile {
-  const name = normalizeName(skill.name)
+  const name = skill.name
+  const skillName = normalizeName(skill.name)
   const frontmatter: Record<string, unknown> = {
     description: skill.description,
   }
   if (skill.argumentHint) {
     frontmatter["argument-hint"] = skill.argumentHint
   }
-  const body = `Use the ${name} skill for this command and follow its instructions.`
+  const body = `Use the ${skillName} skill for this command and follow its instructions.`
   return { name, content: formatFrontmatter(frontmatter, body) }
 }
 
@@ -135,7 +136,7 @@ function convertCommand(
   }
   const commandBody = `Use the ${skillName} skill for this command and follow its instructions.`
   const commandFile: CrushCommandFile = {
-    name: skillName,
+    name: command.name,
     content: formatFrontmatter(commandFrontmatter, commandBody),
   }
 

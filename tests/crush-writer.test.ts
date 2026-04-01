@@ -30,7 +30,7 @@ describe("writeCrushBundle", () => {
       },
       commandFiles: [
         {
-          name: "ce-work",
+          name: "ce:work",
           content: "---\ndescription: Do the work\n---\n\nUse the ce-work skill.",
         },
       ],
@@ -51,7 +51,7 @@ describe("writeCrushBundle", () => {
     await writeCrushBundle(tempRoot, bundle)
 
     expect(await exists(path.join(tempRoot, ".crush", "crush.json"))).toBe(true)
-    expect(await exists(path.join(tempRoot, ".crush", "commands", "ce-work.md"))).toBe(true)
+    expect(await exists(path.join(tempRoot, ".crush", "commands", "ce", "work.md"))).toBe(true)
     expect(await exists(path.join(tempRoot, ".crush", "skills", "ce-work", "SKILL.md"))).toBe(true)
     expect(await exists(path.join(tempRoot, ".crush", "skills", "skill-one", "SKILL.md"))).toBe(true)
 
@@ -61,23 +61,24 @@ describe("writeCrushBundle", () => {
     expect(config.mcp.playwright.command).toBe("npx")
 
     const cmdContent = await fs.readFile(
-      path.join(tempRoot, ".crush", "commands", "ce-work.md"), "utf8",
+      path.join(tempRoot, ".crush", "commands", "ce", "work.md"), "utf8",
     )
     expect(cmdContent).toContain("Use the ce-work skill.")
   })
 
-  test("command files are .md and slash-invocable by filename", async () => {
+  test("command file name with colons creates nested subdirectory (ce:work -> commands/ce/work.md)", async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "crush-cmd-"))
     const bundle: CrushBundle = {
       config: {},
-      commandFiles: [{ name: "ce-plan", content: "---\ndescription: Plan\n---\n\nPlan." }],
+      commandFiles: [{ name: "ce:plan", content: "---\ndescription: Plan\n---\n\nPlan." }],
       generatedSkills: [],
       skillDirs: [],
     }
 
     await writeCrushBundle(tempRoot, bundle)
 
-    expect(await exists(path.join(tempRoot, ".crush", "commands", "ce-plan.md"))).toBe(true)
+    expect(await exists(path.join(tempRoot, ".crush", "commands", "ce", "plan.md"))).toBe(true)
+    expect(await exists(path.join(tempRoot, ".crush", "commands", "ce-plan.md"))).toBe(false)
   })
 
   test("writes directly into crush output root without double-nesting", async () => {
